@@ -1,11 +1,12 @@
 from datetime import datetime
 
 async def tambah_databot(self):
+    from datetime import datetime
     data = {
         "_id": self.user_id,
-        "nama": "Pengguna",  # default jika belum diketahui
-        "status": f"member_{self.user_id}",
-        "coin": f"10_{self.user_id}",
+        "nama": "Pengguna",
+        "status": f"nonmember_{self.user_id}",  # ✅ user baru = non-member
+        "coin": f"0_{self.user_id}",
         "menfess": 0,
         "all_menfess": 0,
         "sign_up": datetime.utcnow().isoformat(),
