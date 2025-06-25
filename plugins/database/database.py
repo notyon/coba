@@ -1,32 +1,24 @@
-from typing import List, Dict
-import pymongo
-import config
-import json
+from datetime import datetime
 
-myclient = pymongo.MongoClient(config.db_url)
-mydb = myclient[config.db_name]
-
-mycol = mydb['user']
-
-
-class Database():
-    def __init__(self, user_id: int):
-        self.user_id = user_id
-
-    async def tambah_databot(self):
-        data = {
-            "_id": self.user_id,
-            "menfess": 0,
-            "bot_status": True,
-            "ban": {},
-            "admin": [],
-            "kirimchannel": {
-                "photo": True,
-                "video": False,
-                "voice": False
-            }
+async def tambah_databot(self):
+    data = {
+        "_id": self.user_id,
+        "nama": "Pengguna",  # default jika belum diketahui
+        "status": f"member_{self.user_id}",
+        "coin": f"10_{self.user_id}",
+        "menfess": 0,
+        "all_menfess": 0,
+        "sign_up": datetime.utcnow().isoformat(),
+        "bot_status": True,
+        "ban": {},
+        "admin": [],
+        "kirimchannel": {
+            "photo": True,
+            "video": False,
+            "voice": False
         }
-        await self.tambah_pelanggan(data)
+    }
+    await self.tambah_pelanggan(data)
 
     async def cek_user_didatabase(self):
         found = mycol.find_one({'_id': self.user_id})
