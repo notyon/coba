@@ -1,35 +1,35 @@
-from datetime import datetime
+class Database():
+    def __init__(self, user_id: int):
+        self.user_id = user_id
 
-async def tambah_databot(self):
-    from datetime import datetime
-    data = {
-        "_id": self.user_id,
-        "nama": "Pengguna",
-        "status": f"nonmember_{self.user_id}",  # ✅ user baru = non-member
-        "coin": f"0_{self.user_id}",
-        "menfess": 0,
-        "all_menfess": 0,
-        "sign_up": datetime.utcnow().isoformat(),
-        "bot_status": True,
-        "ban": {},
-        "admin": [],
-        "kirimchannel": {
-            "photo": True,
-            "video": False,
-            "voice": False
+    async def tambah_databot(self):
+        from datetime import datetime
+        data = {
+            "_id": self.user_id,
+            "nama": "Pengguna",
+            "status": f"nonmember_{self.user_id}",
+            "coin": f"0_{self.user_id}",
+            "menfess": 0,
+            "all_menfess": 0,
+            "sign_up": datetime.utcnow().isoformat(),
+            "bot_status": True,
+            "ban": {},
+            "admin": [],
+            "kirimchannel": {
+                "photo": True,
+                "video": False,
+                "voice": False
+            }
         }
-    }
-    await self.tambah_pelanggan(data)
+        await self.tambah_pelanggan(data)
 
     async def cek_user_didatabase(self):
         found = mycol.find_one({'_id': self.user_id})
-        if found:
-            return True
-        else:
-            return False
+        return found is not None
 
     async def tambah_pelanggan(self, data):
         mycol.insert_one(data)
+    
     
     async def hapus_pelanggan(self, user_id: int):
         mycol.delete_one({'_id': user_id})
