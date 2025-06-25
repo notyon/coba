@@ -24,8 +24,8 @@ class Database():
         await self.tambah_pelanggan(data)
 
     async def cek_user_didatabase(self):
-        found = mycol.find_one({'_id': self.user_id})
-        return found is not None
+    found = self.mycol.find_one({'_id': self.user_id})
+    return found is not None
 
     async def tambah_pelanggan(self, data):
         mycol.insert_one(data)
