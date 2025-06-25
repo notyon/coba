@@ -1,9 +1,18 @@
-class Database():
+import pymongo
+import config
+import json
+from datetime import datetime
+
+myclient = pymongo.MongoClient(config.db_url)
+mydb = myclient[config.db_name]
+mycol = mydb['user']
+
+
+class Database:
     def __init__(self, user_id: int):
         self.user_id = user_id
 
     async def tambah_databot(self):
-        from datetime import datetime
         data = {
             "_id": self.user_id,
             "nama": "Pengguna",
@@ -24,16 +33,14 @@ class Database():
         await self.tambah_pelanggan(data)
 
     async def cek_user_didatabase(self):
-        found = self.mycol.find_one({'_id': self.user_id})
-    return found is not None
+        found = mycol.find_one({'_id': self.user_id})
+        return found is not None
 
     async def tambah_pelanggan(self, data):
         mycol.insert_one(data)
-    
-    
+
     async def hapus_pelanggan(self, user_id: int):
         mycol.delete_one({'_id': user_id})
-        return
 
     async def update_menfess(self, coin: int, menfess: int, all_menfess: int):
         user = self.get_data_pelanggan()
@@ -48,173 +55,43 @@ class Database():
                 "all_menfess": (all_menfess + 1)}
             }
         )
+
     async def reset_menfess(self):
-        last = {"menfess" : {"$regex": "^[0-9]"}}
-        new = { "$set": { "menfess": 0 } }
+        new = {"$set": {"menfess": 0}}
         x = mycol.update_many({}, new)
         return x.modified_count
-        
+
     async def transfer_coin(self, ditranfer: int, diterima: int, coin_awal_target_full: int, id_target: int):
         coin_awal_user = self.get_data_pelanggan().coin_full
-        a = mycol.update_one(
+        mycol.update_one(
             {"coin": coin_awal_user},
-            {"$set": {
-                "coin": f"{ditranfer}_{self.user_id}"
-            }}
+            {"$set": {"coin": f"{ditranfer}_{self.user_id}"}}
         )
-        b = mycol.update_one(
+        mycol.update_one(
             {"coin": coin_awal_target_full},
-            {"$set": {
-                "coin": f"{diterima}_{id_target}"
-            }}
+            {"$set": {"coin": f"{diterima}_{id_target}"}}
         )
-    async def update_admin(self, id_admin: int, id_bot: int):
-        last_data = {
-            "admin": self.get_data_bot(id_bot).admin
-        }
-        data = self.get_data_bot(id_bot).admin
-        data.append(id_admin)
 
-        last_status = self.get_data_pelanggan().status_full
-        coin_awal = self.get_data_pelanggan().coin
-        mycol.update_one(
-            {"status": last_status, "coin": f"{coin_awal}_{str(id_admin)}"},
-            {"$set": {
-                "status": f"admin_{str(id_admin)}",
-                "coin": f"{(coin_awal + 1000)}_{str(id_admin)}"
-            }
-            })
-        mycol.update_one(last_data, {"$set": {"admin": data}})
+    async def get_coin(self) -> int:
+        user = mycol.find_one({'_id': self.user_id})
+        return int(user['coin'].split('_')[0]) if user else 0
 
-    async def hapus_admin(self, id_admin: int, id_bot: int):
-        last_data = {
-            "admin": self.get_data_bot(id_bot).admin
-        }
-        data = self.get_data_bot(id_bot).admin
-        data.remove(id_admin)
+    async def kurangi_coin(self, jumlah: int) -> bool:
+        user = mycol.find_one({'_id': self.user_id})
+        current = int(user['coin'].split('_')[0])
+        if user and current >= jumlah:
+            mycol.update_one({'_id': self.user_id}, {"$set": {"coin": f"{current - jumlah}_{self.user_id}"}})
+            return True
+        return False
 
-        last_status = self.get_data_pelanggan().status_full
-        coin_awal = self.get_data_pelanggan().coin
-        mycol.update_one(
-            {"status": last_status, "coin": f"{coin_awal}_{str(id_admin)}"},
-            {"$set": {
-                "status": f"member_{str(id_admin)}",
-                "coin": f"{(coin_awal - 1000)}_{str(id_admin)}"
-            }
-            })
-        mycol.update_one(last_data, {"$set": {"admin": data}})
-
-    async def banned_user(self, id_banned: int, id_bot: int, alasan: str):
-        last_data = {
-            "ban": self.get_data_bot(id_bot).ban
-        }
-        new_data = self.get_data_bot(id_bot).ban
-        new_data[str(id_banned)] = str(alasan)
-        last_status = self.get_data_pelanggan().status_full
-        mycol.update_one(
-            {"status": last_status},
-            {"$set": {"status": f"banned_{str(id_banned)}"}
-             })
-        mycol.update_one(last_data, {"$set": {"ban": new_data}})
-    
-    async def unban_user(self, id_banned: int, id_bot: int):
-        last_data = {
-            "ban": self.get_data_bot(id_bot).ban
-        }
-        new_data = self.get_data_bot(id_bot).ban
-        del new_data[str(id_banned)]
-        last_status = self.get_data_pelanggan().status_full
-        mycol.update_one(
-            {"status": last_status},
-            {"$set": {"status": f"member_{str(id_banned)}"}}
-        )
-        mycol.update_one(last_data, {"$set": {"ban": new_data}})
-    
-    async def bot_handler(self, status: str):
-        if status == 'on' or status == '<on>':
-            bot_status = True
-            last_data = {"bot_status": False}
-        else:
-            bot_status = False
-            last_data = {"bot_status": True}
-
-        mycol.update_one(last_data, {"$set": {"bot_status": bot_status}})
-
-    async def photo_handler(self, status: str, id_bot: int):
-        data_bot = self.get_data_bot(id_bot).kirimchannel
-        last_data = {"kirimchannel": {"photo": data_bot.photo, "video": data_bot.video, "voice": data_bot.voice }}
-        if status == '✅':
-            photo_status = {
-                "$set": {"kirimchannel": {
-                    "photo": False,
-                    "video": data_bot.video,
-                    "voice": data_bot.voice
-                    }
-                }
-            }
-        else:
-            photo_status = {
-                "$set": {"kirimchannel": {
-                    "photo": True,
-                    "video": data_bot.video,
-                    "voice": data_bot.voice
-                    }
-                }
-            }
-        mycol.update_one(last_data, photo_status)
-
-    async def video_handler(self, status: str, id_bot: int):
-        data_bot = self.get_data_bot(id_bot).kirimchannel
-        last_data = {"kirimchannel": {"photo": data_bot.photo, "video": data_bot.video, "voice": data_bot.voice }}
-        if status == '✅':
-            photo_status = {
-                "$set": {"kirimchannel": {
-                    "photo": data_bot.photo,
-                    "video": False,
-                    "voice": data_bot.voice
-                    }
-                }
-            }
-        else:
-            photo_status = {
-                "$set": {"kirimchannel": {
-                    "photo": data_bot.photo,
-                    "video": True,
-                    "voice": data_bot.voice
-                    }
-                }
-            }
-        mycol.update_one(last_data, photo_status)
-
-    async def voice_handler(self, status: str, id_bot: int):
-        data_bot = self.get_data_bot(id_bot).kirimchannel
-        last_data = {"kirimchannel": {"photo": data_bot.photo, "video": data_bot.video, "voice": data_bot.voice }}
-        if status == '✅':
-            photo_status = {
-                "$set": {"kirimchannel": {
-                    "photo": data_bot.photo,
-                    "video": data_bot.video,
-                    "voice": False
-                    }
-                }
-            }
-        else:
-            photo_status = {
-                "$set": {"kirimchannel": {
-                    "photo": data_bot.photo,
-                    "video": data_bot.video,
-                    "voice": True
-                    }
-                }
-            }
-        mycol.update_one(last_data, photo_status)
+    async def tambah_coin(self, jumlah: int):
+        user = mycol.find_one({'_id': self.user_id})
+        current = int(user['coin'].split('_')[0])
+        mycol.update_one({'_id': self.user_id}, {"$set": {"coin": f"{current + jumlah}_{self.user_id}"}})
 
     def get_pelanggan(self):
-        user_id = []
-        for doc in mycol.find():
-            user_id.append(doc['_id'])
-        
-        return get_pelanggan(user_id)
+        user_ids = [doc['_id'] for doc in mycol.find()]
+        return get_pelanggan(user_ids)
 
     def get_data_pelanggan(self):
         found = mycol.find_one({'_id': self.user_id})
@@ -224,23 +101,24 @@ class Database():
         found = mycol.find_one({'_id': id_bot})
         return data_bot(found)
 
-class get_pelanggan():
-    def __init__(self, args: list):
-        args.remove(args[0])
-        self.total_pelanggan = len(args)
-        self.id_pelanggan = args
-        self.json = { "total_pelanggan": len(args), "id_pelanggan": args }
+
+class get_pelanggan:
+    def __init__(self, ids: list):
+        if ids:
+            ids.remove(ids[0])
+        self.total_pelanggan = len(ids)
+        self.id_pelanggan = ids
+        self.json = {"total_pelanggan": len(ids), "id_pelanggan": ids}
 
     def get_data_pelanggan(self, index: int = 0):
         found = mycol.find_one({'_id': self.id_pelanggan[index]})
-        if found:
-            return data_pelanggan(found)
-        else:
-            return 'ID tidak ditemukan'
-    def __str__(self) -> str:
-        return str(json.dumps(self.json, indent=3))
+        return data_pelanggan(found) if found else 'ID tidak ditemukan'
 
-class data_pelanggan():
+    def __str__(self):
+        return json.dumps(self.json, indent=3)
+
+
+class data_pelanggan:
     def __init__(self, args):
         self.id = args['_id']
         self.nama = str(args['nama'])
@@ -254,44 +132,30 @@ class data_pelanggan():
         self.sign_up = args['sign_up']
         self.json = args
 
-    def __str__(self) -> str:
-        return str(json.dumps(self.json, indent=3))
+    def __str__(self):
+        return json.dumps(self.json, indent=3)
 
 
-class data_bot():
+class data_bot:
     def __init__(self, args):
-        super().__init__()
         self.id = args['_id']
         self.bot_status = args['bot_status']
         self.ban = dict(args['ban'])
         self.admin = list(args['admin'])
         self.kirimchannel = kirim_channel(dict(args['kirimchannel']))
-        # del args['menfess']
         self.json = args
 
-    def __str__(self) -> str:
-        return str(json.dumps(self.json, indent=3))
+    def __str__(self):
+        return json.dumps(self.json, indent=3)
 
-class kirim_channel():
+
+class kirim_channel:
     def __init__(self, args):
         self.photo = args['photo']
         self.video = args['video']
         self.voice = args['voice']
         self.json = args
-    def __str__(self) -> str:
-        return str(json.dumps(self.json, indent=3))
 
-
-    async def get_coin(self) -> int:
-        user = mycol.find_one({'_id': self.user_id})
-        return user.get('coin', 0) if user else 0
-
-    async def kurangi_coin(self, jumlah: int) -> bool:
-        user = mycol.find_one({'_id': self.user_id})
-        if user and user.get('coin', 0) >= jumlah:
-            mycol.update_one({'_id': self.user_id}, {'$inc': {'coin': -jumlah}})
-            return True
-        return False
-
-    async def tambah_coin(self, jumlah: int) -> None:
-        mycol.update_one({'_id': self.user_id}, {'$inc': {'coin': jumlah}}, upsert=True)
+    def __str__(self):
+        return json.dumps(self.json, indent=3)
+        
